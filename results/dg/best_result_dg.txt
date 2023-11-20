@@ -1,0 +1,2 @@
+now_model_name: DDNN	 e_acc: 89.83919420392296	 e_miF: 89.83919420392296	 e_maF: 89.15459465817528	 f_acc: 89.83919420392296	 f_miF: 89.83919420392296	 f_maF: 89.15459465817528	 best_iter: 13	 d_AE: 50	 n_lstm_hidden: 64	 n_lstm_layer: 1	 batch_size: 64	 n_epoch: 100
+
