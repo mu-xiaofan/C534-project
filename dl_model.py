@@ -1,6 +1,6 @@
 import os
 import matplotlib
-import data_preprocess_dl
+import data_preprocess
 import torch
 import torch.nn as nn
 import tqdm
@@ -254,15 +254,12 @@ if __name__ == '__main__':
     torch.manual_seed(10)
     args = parser.parse_args()
 
-    train_loader, val_loader, test_loader = data_preprocess_dl.load_dataset_dg(batch_size=args.batch_size, SLIDING_WINDOW_LEN=32, SLIDING_WINDOW_STEP=16)
+    train_loader, val_loader, test_loader = data_preprocess.load_dataset_dl(batch_size=args.batch_size, SLIDING_WINDOW_LEN=32, SLIDING_WINDOW_STEP=16)
 
-    # 创建模型实例并迁移到设备
     model = DDNN(args).to(DEVICE)
 
-    # 定义优化器
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     print()
-    # 设置结果保存路径
     result_name = 'results/' + args.dataset + '/' + str(args.n_epoch) + '_' + str(args.batch_size) + '_' + args.now_model_name + '_' + str(args.n_lstm_hidden) + '_' + str(args.n_lstm_layer) + '.csv'
 
     if not os.path.exists('results/' + args.dataset):

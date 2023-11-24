@@ -32,7 +32,7 @@ def norm_shape(shape):
     raise TypeError('shape must be an int, or a tuple of ints')
 
 
-def sliding_window(a,ws,ss = None,flatten = True):
+def sliding_window(a, ws, ss = None, flatten = True):
     '''
     Return a sliding window over a in any number of dimensions
 
@@ -93,6 +93,6 @@ def sliding_window(a,ws,ss = None,flatten = True):
     firstdim = (np.product(newshape[:-meat]),) if ws.shape else ()
     dim = firstdim + (newshape[-meat:])
     # remove any dimensions with size 1
-    # commented by hangwei
+
     # dim = filter(lambda i: i != 1, dim)
     return strided.reshape(dim)

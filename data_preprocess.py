@@ -1,9 +1,4 @@
-# encoding=utf-8
-"""
-    Created on 10:38 2019/2/19
-    @author: Hangwei Qian
-    Adapted from: https://github.com/guillaume-chevalier/HAR-stacked-residual-bidir-LSTMs
-"""
+
 import os
 import numpy as np
 import torch
@@ -11,10 +6,8 @@ import pickle as cp
 from pandas import Series
 from torch.utils.data import Dataset, DataLoader
 from sliding_window import sliding_window
-from sklearn.svm import SVC
-from sklearn.metrics import accuracy_score
 
-# dataset DG's number of features
+
 NUM_FEATURES = 9
 
 
@@ -22,8 +15,8 @@ def opp_sliding_window(data_x, data_y, window_size, step_size):
     """
     Create series data.
     """
-    data_x = sliding_window(data_x,(window_size,data_x.shape[1]),(step_size,1))
-    data_y = np.asarray([[i[-1]] for i in sliding_window(data_y,window_size,step_size)])
+    data_x = sliding_window(data_x, (window_size, data_x.shape[1]), (step_size, 1))
+    data_y = np.asarray([[i[-1]] for i in sliding_window(data_y, window_size, step_size)])
     return data_x.astype(np.float32), data_y.reshape(len(data_y)).astype(np.uint8)
 
 
@@ -140,10 +133,11 @@ def process_dataset_file(data, label):
     data = select_row_col_dg(data, label)
 
     data_x, data_y = divide_x_y(data, label)
+
     data_y = adjust_idx_labels(data_y, label)
     data_y = data_y.astype(int)
 
-    # Perform linear interpolation (a.k.a. filling in NaN)
+    # Filling in NaN
     data_x = np.array([Series(i).interpolate() for i in data_x.T]).T
     # Remaining missing data are converted to zero
     data_x[np.isnan(data_x)] = 0
@@ -221,22 +215,24 @@ def normalize(x):
     x /= std
     return x
 
+def transform_features_for_ml(x_windows):
+    """将每个窗口的特征转换为均值和标准差"""
+    transformed = np.zeros((x_windows.shape[0], 18))  # 每个窗口18个特征（9个mean + 9个std）
 
-def load_dataset_dg(batch_size=64, SLIDING_WINDOW_LEN=0, SLIDING_WINDOW_STEP=0):
+    for i in range(x_windows.shape[0]):
+        feature_means = np.mean(x_windows[i], axis=0)
+        feature_stds = np.std(x_windows[i], axis=0)
+        transformed[i] = np.concatenate((feature_means, feature_stds))
+    
+    return transformed
 
+
+def load_dataset_dl(batch_size=64, SLIDING_WINDOW_LEN=0, SLIDING_WINDOW_STEP=0):
     x_train, y_train, x_val, y_val, x_test, y_test = load_data_dg()
-
     x_train_win, y_train_win = opp_sliding_window(x_train, y_train, SLIDING_WINDOW_LEN, SLIDING_WINDOW_STEP)
     x_val_win, y_val_win = opp_sliding_window(x_val, y_val, SLIDING_WINDOW_LEN, SLIDING_WINDOW_STEP)
     x_test_win, y_test_win = opp_sliding_window(x_test, y_test, SLIDING_WINDOW_LEN, SLIDING_WINDOW_STEP)
-    '''
-    svm_model = SVC(kernel='linear')
-    svm_model.fit(x_train_win, y_train_win)
 
-    y_pred = svm_model.predict(x_test_win)
-    accuracy = accuracy_score(y_test_win, y_pred)
-    print('Test accuracy with SVM:', accuracy)
-    '''
     unique_ytrain, counts_ytrain = np.unique(y_train_win, return_counts=True)
 
     weights = 100.0 / torch.Tensor(counts_ytrain)
@@ -256,3 +252,12 @@ def load_dataset_dg(batch_size=64, SLIDING_WINDOW_LEN=0, SLIDING_WINDOW_STEP=0):
     return train_loader, val_loader, test_loader
 
 
+def load_dataset_ml(SLIDING_WINDOW_LEN=0, SLIDING_WINDOW_STEP=0):
+    x_train, y_train, x_val, y_val, x_test, y_test = load_data_dg()
+    x_train_win, y_train_win = opp_sliding_window(x_train, y_train, SLIDING_WINDOW_LEN, SLIDING_WINDOW_STEP)
+    x_val_win, y_val_win = opp_sliding_window(x_val, y_val, SLIDING_WINDOW_LEN, SLIDING_WINDOW_STEP)
+    x_test_win, y_test_win = opp_sliding_window(x_test, y_test, SLIDING_WINDOW_LEN, SLIDING_WINDOW_STEP)
+    x_train_transformed = transform_features_for_ml(x_train_win)
+    x_val_transformed = transform_features_for_ml(x_val_win)
+    x_test_transformed = transform_features_for_ml(x_test_win)
+    return x_train_transformed, x_val_transformed, x_test_transformed, y_train_win, y_val_win, y_test_win
