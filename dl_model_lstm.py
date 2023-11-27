@@ -134,9 +134,9 @@ def train_dg_fixed(model, optimizer, train_loader, test_loader, now_model_name, 
         correct, total_loss = 0, 0
         total = 0
 
-        # 迭代训练数据
+        # iterate over training data
         for index, (sample, target) in enumerate(train_loader):
-            # 数据迁移到设备并转换为适当的格式
+            # transfer data to device and convert to the proper format
             sample, target = sample.to(DEVICE).float(), target.to(DEVICE).long()
             now_len = sample.shape[1]
             sample = sample.view(-1, feature_dim, now_len)
@@ -240,7 +240,7 @@ parser.add_argument('--n_lstm_layer', type=int, default=1, help='number of lstm 
 parser.add_argument('--n_lstm_hidden', type=int, default=64, help= 'number of lstm hidden dim, default 64')
 parser.add_argument('--batch_size', type=int, default=64, help='batch size of training')
 parser.add_argument('--n_epoch', type=int, default=100, help='number of training epochs')
-parser.add_argument('--dataset', type=str, default='dg', help='name of dataset')
+parser.add_argument('--model_name', type=str, default='lstm', help='name of model')
 
 parser.add_argument('--n_feature', type=int, default=9, help='name of feature dimension')
 parser.add_argument('--len_sw', type=int, default=32, help='length of sliding window')
@@ -259,18 +259,16 @@ if __name__ == '__main__':
     model = DDNN(args).to(DEVICE)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-    print()
-    result_name = 'results/' + args.dataset + '/' + str(args.n_epoch) + '_' + str(args.batch_size) + '_' + args.now_model_name + '_' + str(args.n_lstm_hidden) + '_' + str(args.n_lstm_layer) + '.csv'
+    result_name = 'results/' + args.model_name + '/' + str(args.n_epoch) + '_' + str(args.batch_size) + '_' + args.now_model_name + '_' + str(args.n_lstm_hidden) + '_' + str(args.n_lstm_layer) + '.csv'
 
-    if not os.path.exists('results/' + args.dataset):
-        os.makedirs('results/' + args.dataset)
+    if not os.path.exists('results/' + args.model_name):
+        os.makedirs('results/' + args.model_name)
     if not os.path.isfile(result_name):
         with open(result_name, 'w') as my_empty_csv:
             pass
 
     best_e_acc, best_e_miF, best_e_maF, best_f_acc, best_f_miF, best_f_maF, best_iter = train_dg_fixed(model, optimizer, train_loader, test_loader, result_name, args)
-    dataset_name = "{}".format(args.dataset)
-    with open('results/{}/best_result_{}.txt'.format(dataset_name, dataset_name), 'a') as f:
+    with open('results/{}/{}_best_metrics.txt'.format(args.model_name, args.model_name), 'a') as f:
         f.write('now_model_name: ' + args.now_model_name + '\t e_acc: ' + str(best_e_acc) + '\t e_miF: ' + str(
             best_e_miF) + '\t e_maF: ' + str(best_e_maF)
                 + '\t f_acc: ' + str(best_f_acc) + '\t f_miF: ' + str(best_f_miF) + '\t f_maF: ' + str(
