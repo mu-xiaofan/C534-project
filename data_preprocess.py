@@ -144,6 +144,7 @@ def process_dataset_file(data, label):
     data_x = normalize(data_x)
     return data_x, data_y
 
+
 def select_row_col_dg(data, label):
     """
     :param data:

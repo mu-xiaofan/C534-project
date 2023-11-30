@@ -8,6 +8,10 @@ import argparse
 from utils import *
 import torch.nn.functional as F
 
+
+LOSS_FN_WEIGHT = 1e-5
+
+
 class DDNN(nn.Module):
     def __init__(self, args):
         super(DDNN, self).__init__()
@@ -42,13 +46,13 @@ class DDNN(nn.Module):
             nn.Linear(128, self.n_feature * self.len_sw),
             nn.Tanh())
 
-        # RNN部分
+        # RNN part
         # LSTM
         self.lstm = nn.LSTM(self.n_feature, self.n_lstm_hidden, self.n_lstm_layer, batch_first=True)
         self.lstm_spatial = nn.LSTM(self.len_sw, self.n_lstm_hidden, self.n_lstm_layer, batch_first=True)
 
         # Convolutional layer
-        # 一系列卷积层和池化层用于提取特征
+        # A series of convolutional and pooling layers are used to extract features
         self.conv1 = nn.Sequential(
             nn.Conv2d(in_channels=self.n_feature, out_channels=1024, kernel_size=(1, 5)),
             nn.ReLU(),
@@ -67,7 +71,7 @@ class DDNN(nn.Module):
             nn.MaxPool2d(kernel_size=(1, 2), stride=2))
 
         # Full connection layer
-        # 这些层用于综合特征并输出最终的分类结果
+        # Conbine features and output the final results
         self.fc1 = nn.Sequential(
             nn.Linear(in_features=(2*self.n_lstm_hidden + self.d_AE + 64), out_features=1000),
             nn.ReLU())
@@ -83,18 +87,18 @@ class DDNN(nn.Module):
 
         # Process time-series data using LSTM
         out_rnn, _ = self.lstm(x.view(x.shape[0], -1, self.n_feature)) # (batch_size, sequence_length, n_feature)
-        out_rnn = out_rnn[:, -1, :] # 取最后一个时间步的输出
+        out_rnn = out_rnn[:, -1, :] # Last time step as output
 
         # Process space data using LSTM
         out_rnn_spatial, _ = self.lstm_spatial(x.view(x.shape[0], self.n_feature, -1))  # (batch_size, n_feature, sequence_length)
-        out_rnn_spatial = out_rnn_spatial[:, -1, :] # 取最后一个空间步的输出
+        out_rnn_spatial = out_rnn_spatial[:, -1, :] # Last time step as output
 
-        # 卷积层处理：逐步提取特征
+        # Convolutional layer: extract features gradually
         out_conv1 = self.conv1(x.view(-1, x.shape[1], 1, x.shape[2]))
         out_conv2 = self.conv2(out_conv1)
         out_conv3 = self.conv3(out_conv2)
         out_conv4 = self.conv4(out_conv3)
-        out_conv4 = out_conv4.reshape(-1, out_conv4.shape[1] * out_conv4.shape[3]) # 调整形状以适应全连接层
+        out_conv4 = out_conv4.reshape(-1, out_conv4.shape[1] * out_conv4.shape[3]) # reshape to fit full connection layer
 
         # combine all the features
         out_combined = torch.cat((out_encoder, out_rnn, out_rnn_spatial, out_conv4), dim=1)  # (batch_size, combined_features)
@@ -113,13 +117,12 @@ matplotlib.use('Agg')  # using agg as backend for drawing plots
 # initialize
 result = []
 acc_all = []
-LOSS_FN_WEIGHT = 1e-5
+
 
 def train_dg_fixed(model, optimizer, train_loader, test_loader, now_model_name, args):
     """
     Train function.
     """
-    # 批量大小（batch size）是指每次训练迭代中用于计算梯度并更新网络权重的样本数量。
     feature_dim = args.n_feature # Get feature dimension
     n_batch = len(train_loader.dataset) // args.batch_size # Calculate the batch size for every epoch
     criterion = nn.CrossEntropyLoss()

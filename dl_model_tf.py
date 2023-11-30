@@ -208,11 +208,11 @@ for lr in lr_options:
                 'result_name': result_name
             }
 
-# 保存最佳模型
+# save best model
 if best_model_info:
     torch.save(best_model_info['model_state'], f'{best_model_info["result_name"]}_best_model.pth')
 
-# 测试集评估
+
 model.load_state_dict(torch.load(f'{best_model_info["result_name"]}_best_model.pth'))
 test_res = evaluate(model, val_loader)
 print("Test result:", test_res)
