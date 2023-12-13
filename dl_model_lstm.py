@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import tqdm
 import argparse
+import itertools
 from utils import *
 import torch.nn.functional as F
 
@@ -253,29 +254,46 @@ parser.add_argument('--sigma', type=float, default=1, help='parameter of mmd')
 parser.add_argument('--weight_mmd', type=float, default=1.0, help='weight of mmd loss')
 
 
-if __name__ == '__main__':
-    torch.manual_seed(10)
-    args = parser.parse_args()
+torch.manual_seed(10)
+args = parser.parse_args()
 
+
+param_space = {
+    'n_lstm_hidden': [32, 64, 128],
+    'n_lstm_layer': [1, 2, 3],
+    'batch_size': [32, 64, 128],
+}
+
+def train_and_test(args):
     train_loader, val_loader, test_loader = data_preprocess.load_dataset_dl(batch_size=args.batch_size, SLIDING_WINDOW_LEN=32, SLIDING_WINDOW_STEP=16)
-
     model = DDNN(args).to(DEVICE)
-
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     result_name = 'results/' + args.model_name + '/' + str(args.n_epoch) + '_' + str(args.batch_size) + '_' + args.now_model_name + '_' + str(args.n_lstm_hidden) + '_' + str(args.n_lstm_layer) + '.csv'
+    train_dg_fixed(model, optimizer, train_loader, val_loader, result_name, args)
+    model.eval()
+    test_loss = 0
+    correct = 0
+    with torch.no_grad():
+        for sample, target in test_loader:
+            sample, target = sample.to(DEVICE).float(), target.to(DEVICE).long()
+            output, _ = model(sample)
+            test_loss += F.cross_entropy(output, target, reduction='sum').item()
+            pred = output.argmax(dim=1, keepdim=True)
+            correct += pred.eq(target.view_as(pred)).sum().item()
 
-    if not os.path.exists('results/' + args.model_name):
-        os.makedirs('results/' + args.model_name)
-    if not os.path.isfile(result_name):
-        with open(result_name, 'w') as my_empty_csv:
-            pass
+    test_loss /= len(test_loader.dataset)
+    test_accuracy = 100. * correct / len(test_loader.dataset)
+    return test_accuracy
 
-    best_e_acc, best_e_miF, best_e_maF, best_f_acc, best_f_miF, best_f_maF, best_iter = train_dg_fixed(model, optimizer, train_loader, test_loader, result_name, args)
-    with open('results/{}/{}_best_metrics.txt'.format(args.model_name, args.model_name), 'a') as f:
-        f.write('now_model_name: ' + args.now_model_name + '\t e_acc: ' + str(best_e_acc) + '\t e_miF: ' + str(
-            best_e_miF) + '\t e_maF: ' + str(best_e_maF)
-                + '\t f_acc: ' + str(best_f_acc) + '\t f_miF: ' + str(best_f_miF) + '\t f_maF: ' + str(
-            best_f_maF) + '\t best_iter: ' + str(best_iter)  + '\t d_AE: ' + str(args.d_AE)
-                + '\t n_lstm_hidden: ' + str(args.n_lstm_hidden) + '\t n_lstm_layer: ' + str(args.n_lstm_layer)
-                + '\t batch_size: ' + str(args.batch_size) + '\t n_epoch: ' + str(args.n_epoch) + '\n\n')
-    plot(result_name)
+best_performance = 0
+best_params = None
+for combination in itertools.product(*param_space.values()):
+    args = argparse.Namespace(**dict(zip(param_space.keys(), combination)))
+    performance = train_and_test(args)
+    if performance > best_performance:
+        best_performance = performance
+        best_params = args
+
+print("Best performance: ", best_performance)
+print("Best parameter: ", vars(best_params))
+

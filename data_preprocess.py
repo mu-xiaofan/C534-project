@@ -99,7 +99,7 @@ def load_data_dg():
         X_val, y_val = load_data_files(label, DG_DATA_FILES_VAL)
         print('\nProcessing test dataset files...\n')
         X_test, y_test = load_data_files(label, DG_DATA_FILES_TEST)
-        print("Final datasets with size: | train {0} | test {1} | ".format(X_train.shape, X_test.shape))
+        print("Final datasets with size: | train {0} | val {1} | test {2}".format(X_train.shape, X_val.shape, X_test.shape))
 
         obj = [(X_train, y_train), (X_val, y_val), (X_test, y_test)]
         f = open(os.path.join(data_dir, saved_filename), 'wb')
@@ -217,14 +217,13 @@ def normalize(x):
     return x
 
 def transform_features_for_ml(x_windows):
-    """将每个窗口的特征转换为均值和标准差"""
-    transformed = np.zeros((x_windows.shape[0], 18))  # 每个窗口18个特征（9个mean + 9个std）
+    # convert every window's feature into mean and std to fit ml input
+    transformed = np.zeros((x_windows.shape[0], 18))  # every window 18 features（9 mean + 9 std）
 
     for i in range(x_windows.shape[0]):
         feature_means = np.mean(x_windows[i], axis=0)
         feature_stds = np.std(x_windows[i], axis=0)
         transformed[i] = np.concatenate((feature_means, feature_stds))
-    
     return transformed
 
 
